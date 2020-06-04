@@ -39,6 +39,7 @@ class SheepItRenderPanel():
 class LoginPanel(SheepItRenderPanel, bpy.types.Panel):
     """ Login Panel, will be hidden if allready logged in """
     bl_idname = "SHEEPIT_PT_login_panel"
+    bl_options = {'DEFAULT_CLOSED'}
     @classmethod
     def poll(cls, context):
         preferences = context.preferences.addons[__package__].preferences
@@ -53,6 +54,7 @@ class AddProjectPanel(SheepItRenderPanel, bpy.types.Panel):
     """ Add Project Menu in the render Panel,
         this will be disabled if not logged in """
     bl_idname = "SHEEPIT_PT_add_project"
+    bl_options = {'DEFAULT_CLOSED'}
     @classmethod
     def poll(cls, context):
         preferences = context.preferences.addons[__package__].preferences
