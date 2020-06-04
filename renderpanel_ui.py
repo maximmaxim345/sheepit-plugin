@@ -19,11 +19,13 @@ from . import sheepit
 def register():
     bpy.utils.register_class(LoginPanel)
     bpy.utils.register_class(AddProjectPanel)
+    bpy.utils.register_class(ProfilePanel)
 
 
 def unregister():
     bpy.utils.unregister_class(LoginPanel)
     bpy.utils.unregister_class(AddProjectPanel)
+    bpy.utils.unregister_class(ProfilePanel)
 
 
 class SheepItRenderPanel():
@@ -106,4 +108,23 @@ class AddProjectPanel(SheepItRenderPanel, bpy.types.Panel):
         else:
             self.layout.label(
                 text="SheepIt is only compatible with Eevee or Cycles")
+
+
+class ProfilePanel(SheepItRenderPanel, bpy.types.Panel):
+    """ Profile Panel shown under the Submit Panel
+        Used for Userinfo, logout and other Profile operations """
+    bl_idname = "SHEEPIT_PT_profile_panel"
+    bl_parent_id = "SHEEPIT_PT_add_project"
+    bl_label = "Profile"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        preferences = context.preferences.addons[__package__].preferences
+        return preferences.logged_in
+
+    def draw(self, context):
+        preferences = context.preferences.addons[__package__].preferences
+
+        self.layout.label(text=f"logged in as {preferences.username}")
         self.layout.operator("sheepit.logout")
