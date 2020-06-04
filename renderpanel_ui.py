@@ -69,12 +69,19 @@ class AddProjectPanel(SheepItRenderPanel, bpy.types.Panel):
             # Select device
             compute_method = self.layout.row(align=True)
             if bpy.context.scene.render.engine == 'CYCLES':
+                # for Cycles
                 compute_method.prop(
                     context.scene.sheepit_properties, "cpu", toggle=True)
-            compute_method.prop(
-                context.scene.sheepit_properties, "cuda", toggle=True)
-            compute_method.prop(context.scene.sheepit_properties,
-                                "opencl", toggle=True)
+                compute_method.prop(
+                    context.scene.sheepit_properties, "cuda", toggle=True)
+                compute_method.prop(context.scene.sheepit_properties,
+                                    "opencl", toggle=True)
+            else:
+                # for Eevee
+                compute_method.prop(
+                    context.scene.sheepit_properties, "nvidia", toggle=True)
+                compute_method.prop(context.scene.sheepit_properties,
+                                    "amd", toggle=True)
 
             # Select job type (Animation or still)
             self.layout.prop(context.scene.sheepit_properties,
@@ -101,9 +108,16 @@ class AddProjectPanel(SheepItRenderPanel, bpy.types.Panel):
                         "denoising will be disabled.")
 
             self.layout.operator("sheepit.send_project")
-            if not (context.scene.sheepit_properties.cpu or
-                    context.scene.sheepit_properties.cuda or
-                    context.scene.sheepit_properties.opencl):
+            device_valid = False
+            if bpy.context.scene.render.engine == 'CYCLES':
+                device_valid = (context.scene.sheepit_properties.cpu or
+                                context.scene.sheepit_properties.cuda or
+                                context.scene.sheepit_properties.opencl)
+
+            else:
+                device_valid = (context.scene.sheepit_properties.amd or
+                                context.scene.sheepit_properties.nvidia)
+            if not device_valid:
                 self.layout.label(
                     text="You need to set a compute method "
                     "before adding a project.")

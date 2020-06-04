@@ -40,12 +40,21 @@ class SheepItSceneProperties(bpy.types.PropertyGroup):
         description="Generate an MP4 video of the projects, it is really "
         "ressources intensive for the server so only check it if "
         "you really need it.")
+
+    # Cycles specific
     cpu: bpy.props.BoolProperty(
         "CPU", description="Render on CPU", default=True)
     cuda: bpy.props.BoolProperty(
         "CUDA", description="Render on Nvidia GPUs", default=False)
     opencl: bpy.props.BoolProperty(
         "OPEN-CL", description="Render on AMD GPUs", default=False)
+
+    # Eevee specific
+    nvidia: bpy.props.BoolProperty(
+        "NVIDIA", description="Render on Nvidia GPUs", default=True)
+    amd: bpy.props.BoolProperty(
+        "AMD", description="Render on AMD GPUs", default=True)
+
     type: bpy.props.EnumProperty(
         items=[
             ("frame", "Single Frame", "Render only one Image"),

@@ -38,14 +38,20 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
     bl_label = "Send to SheepIt!"
     @classmethod
     def poll(cls, context):
-        # Test if at least one device is selected
-        if not (context.scene.sheepit_properties.cpu or
-                context.scene.sheepit_properties.cuda or
-                context.scene.sheepit_properties.opencl):
-            return False
         supported_renderers = {'CYCLES', 'BLENDER_EEVEE'}
-        if bpy.context.scene.render.engine not in supported_renderers:
+        engine = bpy.context.scene.render.engine
+        if engine not in supported_renderers:
             return False
+        # Test if at least one device is selected
+        if engine == 'CYCLES':
+            if not (context.scene.sheepit_properties.cpu or
+                    context.scene.sheepit_properties.cuda or
+                    context.scene.sheepit_properties.opencl):
+                return False
+        else:
+            if not (context.scene.sheepit_properties.nvidia or
+                    context.scene.sheepit_properties.amd):
+                return False
         return True
 
     def execute(self, context):
@@ -75,12 +81,22 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
 
         animation = context.scene.sheepit_properties.type == 'animation'
         # and add it with all selected settings
+        amd = False
+        nvidia = False
+        cpu = False
+        if bpy.context.scene.render.engine == 'CYCLES':
+            cpu = context.scene.sheepit_properties.cpu
+            amd = context.scene.sheepit_properties.opencl
+            nvidia = context.scene.sheepit_properties.cuda
+        else:
+            amd = context.scene.sheepit_properties.amd
+            nvidia = context.scene.sheepit_properties.nvidia
         try:
             session.add_job(token,
                             animation=animation,
-                            cpu=context.scene.sheepit_properties.cpu,
-                            cuda=context.scene.sheepit_properties.cuda,
-                            opencl=context.scene.sheepit_properties.opencl,
+                            cpu=cpu,
+                            cuda=nvidia,
+                            opencl=amd,
                             public=context.scene.sheepit_properties.public,
                             mp4=context.scene.sheepit_properties.mp4,
                             anim_start_frame=context.scene.frame_start,
