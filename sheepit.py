@@ -91,6 +91,28 @@ class Sheepit():
             except KeyError:
                 pass
 
+    def get_profile_information(self):
+        """ This methode returns a dict with the folowing profile attributes:
+            "Projects created", "Frames ordered", "Rendered frames"
+            "Accumulated render", "Rank", "Points", "Team" and "Registration"
+
+            Raises:
+            NetworkException on a failed connection """
+        r = None
+        try:
+            r = self.session.get(
+                f"https://{self.domain}/account.php?mode=profile", timeout=5)
+        except requests.exceptions.Timeout:
+            raise NetworkException("Timed out")
+        except requests.exceptions.RequestException:
+            raise NetworkException("Failed connecting to the sheepit server")
+
+        p = ProfileParser()
+        p.feed(str(r.text))
+        p.close()
+
+        return p.data
+
     def request_upload_token(self):
         """ Requests a upload token from the Server
             This token should be used with:
@@ -232,6 +254,56 @@ class Sheepit():
             if cookie.domain == self.domain:
                 cookies[cookie.name] = cookie.value
         return cookies
+
+
+class ProfileParser(html.parser.HTMLParser):
+    """ Parses the account.php?mode=profile Page """
+
+    def __init__(self):
+        html.parser.HTMLParser.__init__(self)
+        self.data = {
+            "Projects created": None,
+            "Frames ordered": None,
+            "Rendered frames": None,
+            "Accumulated render": None,
+            "Rank": None,
+            "Points": None,
+            "Team": None,
+            "Registration": None
+        }
+        self.in_dt = False
+        self.in_dd = False
+        self.dt_data = ""
+
+    def handle_starttag(self, tag, attrs):
+        # handle title in the description list:
+        if tag == "dt":
+            self.in_dt = True
+        # handle data
+        elif tag == "dd" and self.dt_data != "":
+            self.in_dd = True
+
+    def handle_data(self, data):
+        # handle title in the description list:
+        if self.in_dt:
+            if data in self.data:
+                self.dt_data = data
+                print(data)
+        # handle data
+        elif self.in_dd:
+            if data != "":
+                self.data[self.dt_data] = data
+                self.dt_data = ""
+                self.in_dd = False
+
+    def handle_endtag(self, tag):
+        # handle title in the description list:
+        if tag == "dt":
+            self.in_dt = False
+        # handle data
+        if tag == "dd":
+            self.in_dd = False
+            self.dt_data = ""
 
 
 class TokenParser(html.parser.HTMLParser):

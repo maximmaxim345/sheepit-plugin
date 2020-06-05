@@ -23,6 +23,7 @@ def register():
     bpy.utils.register_class(SHEEPIT_OT_login)
     bpy.utils.register_class(SHEEPIT_OT_logout)
     bpy.utils.register_class(SHEEPIT_OT_create_accout)
+    bpy.utils.register_class(SHEEPIT_OT_refresh_profile)
 
 
 def unregister():
@@ -30,6 +31,7 @@ def unregister():
     bpy.utils.unregister_class(SHEEPIT_OT_login)
     bpy.utils.unregister_class(SHEEPIT_OT_logout)
     bpy.utils.unregister_class(SHEEPIT_OT_create_accout)
+    bpy.utils.unregister_class(SHEEPIT_OT_refresh_profile)
 
 
 class SHEEPIT_OT_send_project(bpy.types.Operator):
@@ -136,6 +138,39 @@ class SHEEPIT_OT_logout(bpy.types.Operator):
         preferences.logged_in = False
         preferences.cookies = ""
         preferences.username = ""
+        return {'FINISHED'}
+
+
+class SHEEPIT_OT_refresh_profile(bpy.types.Operator):
+    bl_idname = "sheepit.refresh_profile"
+    bl_label = "Refresh"
+
+    @classmethod
+    def poll(cls, context):
+        # test if logged in
+        preferences = context.preferences.addons[__package__].preferences
+        return preferences.logged_in
+
+    def execute(self, context):
+        preferences = context.preferences.addons[__package__].preferences
+        session = sheepit.Sheepit()
+
+        # import cookies
+        session.import_session(json.loads(preferences.cookies))
+
+        profile = None
+        try:
+            profile = session.get_profile_information()
+        except sheepit.NetworkException as e:
+            self.report({'INFO'}, str(e))
+            return {'CANCELLED'}
+
+        # save the profile information to the window manager
+        if 'sheepit' not in bpy.context.window_manager:
+            bpy.context.window_manager['sheepit'] = dict()
+        if 'profile' not in bpy.context.window_manager['sheepit']:
+            bpy.context.window_manager['sheepit']['profile'] = dict()
+        bpy.context.window_manager['sheepit']['profile'] = profile
         return {'FINISHED'}
 
 

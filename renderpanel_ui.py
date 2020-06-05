@@ -143,4 +143,13 @@ class ProfilePanel(SheepItRenderPanel, bpy.types.Panel):
         preferences = context.preferences.addons[__package__].preferences
 
         self.layout.label(text=f"logged in as {preferences.username}")
+
+        # profile information
+        if 'sheepit' in bpy.context.window_manager and \
+                'profile' in bpy.context.window_manager['sheepit']:
+            profile = bpy.context.window_manager['sheepit']['profile']
+            self.layout.label(text=f"Points: {profile['Points']}")
+            self.layout.label(text=f"Rank: {profile['Rank']}")
+
+        self.layout.operator("sheepit.refresh_profile")
         self.layout.operator("sheepit.logout")
