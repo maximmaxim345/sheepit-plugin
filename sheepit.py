@@ -255,6 +255,23 @@ class Sheepit():
                 cookies[cookie.name] = cookie.value
         return cookies
 
+    def is_logged_in(self):
+        """ Returns True if logged in
+
+            Raises:
+            NetworkError on a failed connection """
+        cookies = self.export_session()
+        if not cookies:
+            # Return if cookies empty
+            return False
+        try:
+            r = self.session.get(
+                f"https://{self.domain}/account.php?mode=login", timeout=5)
+            # return True if redirected to main page
+            return r.url == f"https://{self.domain}/"
+        except requests.exceptions.RequestException:
+            raise NetworkException("Failed connecting to the sheepit server")
+
 
 class ProfileParser(html.parser.HTMLParser):
     """ Parses the account.php?mode=profile Page """

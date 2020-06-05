@@ -63,6 +63,19 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         session.import_session(json.loads(
             context.preferences.addons[__package__].preferences.cookies))
 
+        # test if logged in
+        try:
+            if not session.is_logged_in():
+                self.report({'ERROR'}, "Please Log in")
+                preferences = context.preferences.addons[__package__].preferences
+                preferences.logged_in = False
+                preferences.cookies = ""
+                preferences.username = ""
+                return {'CANCELLED'}
+        except sheepit.NetworkException as e:
+            self.report({'ERROR'}, str(e))
+            return {'CANCELLED'}
+
         # request a upload token from the SheepIt server
         token = ""
         try:
@@ -164,6 +177,13 @@ class SHEEPIT_OT_refresh_profile(bpy.types.Operator):
         except sheepit.NetworkException as e:
             self.report({'INFO'}, str(e))
             return {'CANCELLED'}
+
+        # test if logged in
+        if not profile['Points']:
+            self.report({'ERROR'}, "Please Log in")
+            preferences.logged_in = False
+            preferences.cookies = ""
+            preferences.username = ""
 
         # save the profile information to the window manager
         if 'sheepit' not in bpy.context.window_manager:
