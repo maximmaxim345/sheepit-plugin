@@ -181,7 +181,7 @@ class SHEEPIT_OT_refresh_profile(bpy.types.Operator):
             if type(self.profile) is sheepit.NetworkException:
                 self.report({'ERROR'}, str(self.profile))
                 self.cancel(context)
-                return {'CANCELED'}
+                return {'CANCELLED'}
 
             # test if logged in
             if not self.profile['Points']:
@@ -190,7 +190,7 @@ class SHEEPIT_OT_refresh_profile(bpy.types.Operator):
                 preferences.cookies = ""
                 preferences.username = ""
                 self.cancel(context)
-                return {'CANCELED'}
+                return {'CANCELLED'}
 
             # save the profile information to the window manager
             bpy.context.window_manager['sheepit']['profile'] = self.profile
