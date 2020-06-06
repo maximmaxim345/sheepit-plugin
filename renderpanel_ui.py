@@ -108,6 +108,21 @@ class AddProjectPanel(SheepItRenderPanel, bpy.types.Panel):
                         "denoising will be disabled.")
 
             self.layout.operator("sheepit.send_project")
+            status = ""
+            progress = ""
+            # status
+            if 'sheepit' in bpy.context.window_manager and \
+                    'upload_status' in bpy.context.window_manager['sheepit']:
+                status = bpy.context.window_manager['sheepit']['upload_status']
+            # progress
+            if 'sheepit' in bpy.context.window_manager and \
+                    'progress' in bpy.context.window_manager['sheepit']:
+                progress = bpy.context.window_manager['sheepit']['progress']
+                progress = f"{progress}%"
+            if progress and status:
+                self.layout.label(text=f"{status}... {progress}")
+            elif status:
+                self.layout.label(text=status)
             device_valid = False
             if bpy.context.scene.render.engine == 'CYCLES':
                 device_valid = (context.scene.sheepit_properties.cpu or

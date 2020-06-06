@@ -17,6 +17,7 @@ import os
 import json
 import threading
 from . import sheepit
+import time
 
 
 def register():
@@ -70,6 +71,8 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         if event.type == 'TIMER':
             # do nothing if thread is still runing
             if self.thread.is_alive():
+                bpy.context.window_manager['sheepit']['progress'] = self.progress
+                bpy.context.window_manager['sheepit']['upload_status'] = self.status
                 context.area.tag_redraw()
                 return {'PASS_THROUGH'}
 
@@ -82,9 +85,11 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
                     preferences.cookies = ""
                     preferences.username = ""
                 self.report({'ERROR'}, f"{self.error_at}: {self.error}")
+                bpy.context.window_manager['sheepit']['upload_status'] = "Upload failed!"
                 self.cancel(context)
                 return {'CANCELLED'}
 
+            bpy.context.window_manager['sheepit']['upload_status'] = "Project uploaded!"
             self.cancel(context)
             return {'FINISHED'}
         return {'PASS_THROUGH'}
@@ -114,12 +119,19 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         self.frame_current = context.scene.frame_current
         self.anim_split = context.scene.sheepit_properties.anim_split
 
-        self.thread = threading.Thread(target=self.send_project)
-        self.thread.start()
-
         if 'sheepit' not in bpy.context.window_manager:
             bpy.context.window_manager['sheepit'] = dict()
         bpy.context.window_manager['sheepit']['upload_active'] = True
+        bpy.context.window_manager['sheepit']['upload_status'] = ""
+        self.status = ""
+        bpy.context.window_manager['sheepit']['progress'] = 0
+        self.progress = 0
+
+        self.thread = threading.Thread(target=self.send_project)
+        self.thread.start()
+
+        self.upload_thread = threading.Thread(target=self.update_progress)
+        self.uploading = True
 
         wm = context.window_manager
         self._timer = wm.event_timer_add(0.1, window=context.window)
@@ -137,6 +149,8 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         # import cookies
         session.import_session(self.cookies)
 
+        self.status = "Testing connection"
+
         # test if logged in
         try:
             if not session.is_logged_in():
@@ -147,6 +161,9 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
             self.error = str(e)
             self.error_at = "login"
             return
+        self.progress = 5
+
+        self.status = "Getting Token"
 
         # request a upload token from the SheepIt server
         token = ""
@@ -160,6 +177,12 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
             self.error = str(e)
             self.error_at = "token"
             return
+        self.progress = 10
+
+        self.status = "Uploading File"
+
+        self.token = token
+        self.upload_thread.start()
 
         # upload the file
         try:
@@ -167,6 +190,14 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         except sheepit.NetworkException as e:
             self.error = str(e)
             self.error_at = "upload"
+            self.uploading = False
+            return
+        self.uploading = False
+        if self.upload_thread.isAlive():
+            self.upload_thread.join()
+        self.progress = 95
+
+        self.status = "Adding Project"
         try:
             session.add_job(token,
                             animation=self.animation,
@@ -184,12 +215,30 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         except sheepit.NetworkException as e:
             self.error = str(e)
             self.error_at = "add project"
+        self.progress = 100
         return
+
+    def update_progress(self):
+        session = sheepit.Sheepit()
+
+        # import cookies
+        session.import_session(self.cookies)
+        while self.uploading:
+            time.sleep(1)
+            p = session.get_upload_progress(self.token)
+            if p:
+                self.progress = int(10+(p*85))
 
     def cancel(self, context):
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
         bpy.context.window_manager['sheepit']['upload_active'] = False
+        del bpy.context.window_manager['sheepit']['progress']
+        self.uploading = False
+        if self.upload_thread.isAlive():
+            self.upload_thread.join()
+        if self.thread.isAlive():
+            self.thread.join()
         context.area.tag_redraw()
 
 
