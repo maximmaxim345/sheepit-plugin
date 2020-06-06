@@ -15,6 +15,7 @@
 import bpy
 import os
 import json
+import threading
 from . import sheepit
 
 
@@ -162,36 +163,75 @@ class SHEEPIT_OT_refresh_profile(bpy.types.Operator):
     def poll(cls, context):
         # test if logged in
         preferences = context.preferences.addons[__package__].preferences
-        return preferences.logged_in
+        if not preferences.logged_in:
+            return False
+        # test if allready refreshing
+        if 'sheepit' in bpy.context.window_manager and \
+                'refresh_active' in bpy.context.window_manager['sheepit']:
+            return not bpy.context.window_manager['sheepit']['refresh_active']
+        return True
+
+    def modal(self, context, event):
+        if event.type == 'TIMER':
+            # do nothing if thread is still runing
+            if self.thread.is_alive():
+                return {'PASS_THROUGH'}
+
+            # test if error occurred
+            if type(self.profile) is sheepit.NetworkException:
+                self.report({'ERROR'}, str(self.profile))
+                self.cancel(context)
+                return {'CANCELED'}
+
+            # test if logged in
+            if not self.profile['Points']:
+                self.report({'ERROR'}, "Please Log in")
+                preferences.logged_in = False
+                preferences.cookies = ""
+                preferences.username = ""
+                self.cancel(context)
+                return {'CANCELED'}
+
+            # save the profile information to the window manager
+            bpy.context.window_manager['sheepit']['profile'] = self.profile
+            self.cancel(context)
+            return {'FINISHED'}
+        return {'PASS_THROUGH'}
 
     def execute(self, context):
         preferences = context.preferences.addons[__package__].preferences
-        session = sheepit.Sheepit()
+        self.cookies = json.loads(preferences.cookies)
 
-        # import cookies
-        session.import_session(json.loads(preferences.cookies))
+        self.thread = threading.Thread(target=self.request_profile)
+        self.thread.start()
 
-        profile = None
-        try:
-            profile = session.get_profile_information()
-        except sheepit.NetworkException as e:
-            self.report({'INFO'}, str(e))
-            return {'CANCELLED'}
-
-        # test if logged in
-        if not profile['Points']:
-            self.report({'ERROR'}, "Please Log in")
-            preferences.logged_in = False
-            preferences.cookies = ""
-            preferences.username = ""
-
-        # save the profile information to the window manager
         if 'sheepit' not in bpy.context.window_manager:
             bpy.context.window_manager['sheepit'] = dict()
         if 'profile' not in bpy.context.window_manager['sheepit']:
             bpy.context.window_manager['sheepit']['profile'] = dict()
-        bpy.context.window_manager['sheepit']['profile'] = profile
-        return {'FINISHED'}
+        bpy.context.window_manager['sheepit']['refresh_active'] = True
+
+        wm = context.window_manager
+        self._timer = wm.event_timer_add(0.1, window=context.window)
+        wm.modal_handler_add(self)
+
+        return {'RUNNING_MODAL'}
+
+    def cancel(self, context):
+        wm = context.window_manager
+        wm.event_timer_remove(self._timer)
+        bpy.context.window_manager['sheepit']['refresh_active'] = False
+
+    def request_profile(self):
+        session = sheepit.Sheepit()
+
+        # import cookies
+        session.import_session(self.cookies)
+
+        try:
+            self.profile = session.get_profile_information()
+        except sheepit.NetworkException as e:
+            self.profile = e
 
 
 class SHEEPIT_OT_login(bpy.types.Operator):

@@ -148,8 +148,11 @@ class ProfilePanel(SheepItRenderPanel, bpy.types.Panel):
         if 'sheepit' in bpy.context.window_manager and \
                 'profile' in bpy.context.window_manager['sheepit']:
             profile = bpy.context.window_manager['sheepit']['profile']
-            self.layout.label(text=f"Points: {profile['Points']}")
-            self.layout.label(text=f"Rank: {profile['Rank']}")
+            try:
+                self.layout.label(text=f"Points: {profile['Points']}")
+                self.layout.label(text=f"Rank: {profile['Rank']}")
+            except KeyError:
+                pass
 
         self.layout.operator("sheepit.refresh_profile")
         self.layout.operator("sheepit.logout")
