@@ -225,9 +225,12 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         session.import_session(self.cookies)
         while self.uploading:
             time.sleep(1)
-            p = session.get_upload_progress(self.token)
-            if p:
-                self.progress = int(10+(p*85))
+            try:
+                p = session.get_upload_progress(self.token)
+                if p:
+                    self.progress = int(10+(p*85))
+            except Exception:
+                pass
 
     def cancel(self, context):
         wm = context.window_manager
