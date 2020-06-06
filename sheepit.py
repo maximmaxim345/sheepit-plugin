@@ -136,7 +136,10 @@ class Sheepit():
         p.feed(str(r.text))
         p.close()
         if p.token == "":
-            raise UploadException("Error getting Upload Token")
+            raise UploadException(
+                "Error getting Upload Token, "
+                "maximum number of simultaneous Projects reached"
+            )
         return p.token
 
     def upload_file(self, token, path_to_file):
