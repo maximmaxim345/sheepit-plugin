@@ -70,6 +70,7 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         if event.type == 'TIMER':
             # do nothing if thread is still runing
             if self.thread.is_alive():
+                context.area.tag_redraw()
                 return {'PASS_THROUGH'}
 
             # test if error occurred
@@ -189,6 +190,7 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
         bpy.context.window_manager['sheepit']['upload_active'] = False
+        context.area.tag_redraw()
 
 
 class SHEEPIT_OT_logout(bpy.types.Operator):
@@ -216,6 +218,8 @@ class SHEEPIT_OT_logout(bpy.types.Operator):
         preferences.logged_in = False
         preferences.cookies = ""
         preferences.username = ""
+
+        context.area.tag_redraw()
         return {'FINISHED'}
 
 
@@ -285,6 +289,7 @@ class SHEEPIT_OT_refresh_profile(bpy.types.Operator):
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
         bpy.context.window_manager['sheepit']['refresh_active'] = False
+        context.area.tag_redraw()
 
     def request_profile(self):
         session = sheepit.Sheepit()
@@ -346,6 +351,7 @@ class SHEEPIT_OT_login(bpy.types.Operator):
         self.password = ""
         self.username = ""
 
+        context.area.tag_redraw()
         return {'FINISHED'}
 
 
