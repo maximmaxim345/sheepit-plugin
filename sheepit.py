@@ -305,7 +305,6 @@ class ProfileParser(html.parser.HTMLParser):
         if self.in_dt:
             if data in self.data:
                 self.dt_data = data
-                print(data)
         # handle data
         elif self.in_dd:
             if data != "":
