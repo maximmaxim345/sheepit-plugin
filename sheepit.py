@@ -17,6 +17,7 @@ import os
 import requests.sessions
 import requests.cookies
 import html.parser
+from .requests_toolbelt.multipart import encoder
 
 
 class NetworkException(Exception):
@@ -145,25 +146,50 @@ class Sheepit():
     def upload_file(self, token, path_to_file):
         """ Uploads the selected file to the Server
 
-            Use request_upload_token() to get a token
+            Use request_upload_token() to get a token,
+            get_upload_progress() to track the upload progress
             and add_job() to add the uploaded project
 
             Raises:
             NetworkError on a failed connection """
-        try:
-            r = self.session.post(
-                f"https://{self.domain}/jobs.php", data={
+        with open(path_to_file, "rb") as f:
+            try:
+                form = encoder.MultipartEncoder({
                     "step": "1",
                     "transfertmethod": "File",
                     "token": token,
                     "PHP_SESSION_UPLOAD_PROGRESS": token,
                     "mode": "add",
+                    "addjob_archive": (os.path.split(path_to_file)[1], f)
+                })
+                headers = {"Prefer": "respond-async",
+                           "Content-Type": form.content_type}
+                r = self.session.post(
+                    f"https://{self.domain}/jobs.php", data=form, headers=headers)
+            except requests.exceptions.RequestException as e:
+                raise NetworkException(
+                    "Failed connecting to the sheepit server")
+
+    def get_upload_progress(self, token):
+        """ Returns the upload progress in percent
+
+            Raises:
+            NetworkError on a failed connection """
+        try:
+            r = self.session.post(
+                f"https://{self.domain}/ajax.php", data={
+                    "addjob": "addjob",
+                    "upload_progress": "upload_progress",
+                    "token": token
                 },
-                files={"addjob_archive": (os.path.split(path_to_file)[1], open(
-                    path_to_file, "rb"))}
+                timeout=5
             )
+            dict = eval(r.content)
+            return dict['bytes_processed']/dict['content_length']
         except requests.exceptions.RequestException:
             raise NetworkException("Failed connecting to the sheepit server")
+        except SyntaxError:
+            return
 
     def add_job(self, token, animation=True, cpu=True, cuda=False,
                 opencl=False, public=True, mp4=False,
