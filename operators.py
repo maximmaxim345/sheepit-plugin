@@ -41,6 +41,11 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
     bl_label = "Send to SheepIt!"
     @classmethod
     def poll(cls, context):
+        # test if logged in
+        preferences = context.preferences.addons[__package__].preferences
+        if not preferences.logged_in:
+            return False
+        # test if renderer is supported
         supported_renderers = {'CYCLES', 'BLENDER_EEVEE'}
         engine = bpy.context.scene.render.engine
         if engine not in supported_renderers:
@@ -55,76 +60,135 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
             if not (context.scene.sheepit_properties.nvidia or
                     context.scene.sheepit_properties.amd):
                 return False
+        # test if allready uploading
+        if 'sheepit' in bpy.context.window_manager and \
+                'upload_active' in bpy.context.window_manager['sheepit']:
+            return not bpy.context.window_manager['sheepit']['upload_active']
         return True
 
+    def modal(self, context, event):
+        if event.type == 'TIMER':
+            # do nothing if thread is still runing
+            if self.thread.is_alive():
+                return {'PASS_THROUGH'}
+
+            # test if error occurred
+            if self.error or self.error_at:
+                # login error:
+                if self.error_at == "login" and self.error == "Please Log in":
+                    preferences = context.preferences.addons[__package__].preferences
+                    preferences.logged_in = False
+                    preferences.cookies = ""
+                    preferences.username = ""
+                self.report({'ERROR'}, f"{self.error_at}: {self.error}")
+                self.cancel(context)
+                return {'CANCELLED'}
+
+            self.cancel(context)
+            return {'FINISHED'}
+        return {'PASS_THROUGH'}
+
     def execute(self, context):
+        # prepare cookies
+        preferences = context.preferences.addons[__package__].preferences
+        self.cookies = json.loads(preferences.cookies)
+
+        # prepare variables
+        self.animation = context.scene.sheepit_properties.type == 'animation'
+        self.amd = False
+        self.nvidia = False
+        self.cpu = False
+        if bpy.context.scene.render.engine == 'CYCLES':
+            self.cpu = context.scene.sheepit_properties.cpu
+            self.amd = context.scene.sheepit_properties.opencl
+            self.nvidia = context.scene.sheepit_properties.cuda
+        else:
+            self.amd = context.scene.sheepit_properties.amd
+            self.nvidia = context.scene.sheepit_properties.nvidia
+        self.public = context.scene.sheepit_properties.public
+        self.mp4 = context.scene.sheepit_properties.mp4
+        self.frame_start = context.scene.frame_start
+        self.frame_end = context.scene.frame_end
+        self.frame_step = context.scene.frame_step
+        self.frame_current = context.scene.frame_current
+        self.anim_split = context.scene.sheepit_properties.anim_split
+
+        self.thread = threading.Thread(target=self.send_project)
+        self.thread.start()
+
+        if 'sheepit' not in bpy.context.window_manager:
+            bpy.context.window_manager['sheepit'] = dict()
+        bpy.context.window_manager['sheepit']['upload_active'] = True
+
+        wm = context.window_manager
+        self._timer = wm.event_timer_add(0.1, window=context.window)
+        wm.modal_handler_add(self)
+
+        return {'RUNNING_MODAL'}
+
+    def send_project(self):
+        # create error variables
+        self.error = ""
+        self.error_at = ""
+
         session = sheepit.Sheepit()
 
         # import cookies
-        session.import_session(json.loads(
-            context.preferences.addons[__package__].preferences.cookies))
+        session.import_session(self.cookies)
 
         # test if logged in
         try:
             if not session.is_logged_in():
-                self.report({'ERROR'}, "Please Log in")
-                preferences = context.preferences.addons[__package__].preferences
-                preferences.logged_in = False
-                preferences.cookies = ""
-                preferences.username = ""
-                return {'CANCELLED'}
+                self.error = "Please Log in"
+                self.error_at = "login"
+                return
         except sheepit.NetworkException as e:
-            self.report({'ERROR'}, str(e))
-            return {'CANCELLED'}
+            self.error = str(e)
+            self.error_at = "login"
+            return
 
         # request a upload token from the SheepIt server
         token = ""
         try:
             token = session.request_upload_token()
         except sheepit.NetworkException as e:
-            self.report({'ERROR'}, str(e))
-            return {'CANCELLED'}
+            self.error = str(e)
+            self.error_at = "token"
+            return
         except sheepit.UploadException as e:
-            self.report({'ERROR'}, str(e))
-            return {'CANCELLED'}
+            self.error = str(e)
+            self.error_at = "token"
+            return
 
         # upload the file
         try:
             session.upload_file(token, bpy.data.filepath)
         except sheepit.NetworkException as e:
-            self.report({'ERROR'}, str(e))
-            return {'CANCELLED'}
-
-        animation = context.scene.sheepit_properties.type == 'animation'
-        # and add it with all selected settings
-        amd = False
-        nvidia = False
-        cpu = False
-        if bpy.context.scene.render.engine == 'CYCLES':
-            cpu = context.scene.sheepit_properties.cpu
-            amd = context.scene.sheepit_properties.opencl
-            nvidia = context.scene.sheepit_properties.cuda
-        else:
-            amd = context.scene.sheepit_properties.amd
-            nvidia = context.scene.sheepit_properties.nvidia
+            self.error = str(e)
+            self.error_at = "upload"
         try:
             session.add_job(token,
-                            animation=animation,
-                            cpu=cpu,
-                            cuda=nvidia,
-                            opencl=amd,
-                            public=context.scene.sheepit_properties.public,
-                            mp4=context.scene.sheepit_properties.mp4,
-                            anim_start_frame=context.scene.frame_start,
-                            anim_end_frame=context.scene.frame_end,
-                            anim_step_frame=context.scene.frame_step,
-                            still_frame=context.scene.frame_current,
+                            animation=self.animation,
+                            cpu=self.cpu,
+                            cuda=self.nvidia,
+                            opencl=self.amd,
+                            public=self.public,
+                            mp4=self.mp4,
+                            anim_start_frame=self.frame_start,
+                            anim_end_frame=self.frame_end,
+                            anim_step_frame=self.frame_step,
+                            still_frame=self.frame_current,
                             max_ram="",
-                            split=context.scene.sheepit_properties.anim_split)
+                            split=self.anim_split)
         except sheepit.NetworkException as e:
-            self.report({'ERROR'}, str(e))
-            return {'CANCELLED'}
-        return {'FINISHED'}
+            self.error = str(e)
+            self.error_at = "add project"
+        return
+
+    def cancel(self, context):
+        wm = context.window_manager
+        wm.event_timer_remove(self._timer)
+        bpy.context.window_manager['sheepit']['upload_active'] = False
 
 
 class SHEEPIT_OT_logout(bpy.types.Operator):
