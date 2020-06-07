@@ -1,6 +1,6 @@
 ## Blender Plugin for the SheepIt! Renderfarm
 ### Installation
-1. Download this plugin under (releases)[https://github.com/maximmaxim345/sheepit-plugin/releases]
+1. Download this plugin under [releases](https://github.com/maximmaxim345/sheepit-plugin/releases)
 2. Install the zip in Blender under Edit > preferences > Install
 ### Usage
 1. Login under Render > SheepIt! in the Properties Editor
