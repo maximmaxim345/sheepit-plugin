@@ -18,6 +18,7 @@ import json
 import threading
 from . import sheepit
 import time
+import subprocess
 
 
 def register():
@@ -119,6 +120,19 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         self.frame_current = context.scene.frame_current
         self.anim_split = context.scene.sheepit_properties.anim_split
 
+        # Save file
+        blend_name = os.path.split(bpy.data.filepath)[1]
+        if not blend_name:
+            blend_name = "untitled.blend"
+        self.filepath = os.path.join(bpy.app.tempdir, blend_name)
+        bpy.ops.wm.save_as_mainfile(filepath=self.filepath, copy=True)
+
+        # Prepare script variables
+        self.blender_exe = bpy.app.binary_path
+        self.prepare_script = os.path.join(os.path.dirname(__file__),
+                                           "prepare_scene.py"
+                                           )
+
         if 'sheepit' not in bpy.context.window_manager:
             bpy.context.window_manager['sheepit'] = dict()
         bpy.context.window_manager['sheepit']['upload_active'] = True
@@ -161,7 +175,39 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
             self.error = str(e)
             self.error_at = "login"
             return
+        
         self.progress = 5
+
+        self.status = "Preparing Scene"
+
+        # Prepare scene
+        r = subprocess.run(
+            [
+                self.blender_exe,
+                self.filepath,
+                "--background",
+                "--factory-startup",
+                "--python",
+                self.prepare_script
+            ], shell=True
+        )
+        try:
+            with open(f"{self.filepath}.log", "r") as f:
+                output = f.read().split("<->")
+
+                if len(output) == 0 or output[0] != "OK":
+                    if len(output) > 1:
+                        self.error = output[1]
+                    else:
+                        self.error = "unknown error"
+                    self.error_at = "prepare scene"
+                    return
+        except OSError:
+            self.error = "Error opening log"
+            self.error_at = "prepare scene"
+            return
+
+        self.progress = 10
 
         self.status = "Getting Token"
 
@@ -177,7 +223,7 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
             self.error = str(e)
             self.error_at = "token"
             return
-        self.progress = 10
+        self.progress = 15
 
         self.status = "Uploading File"
 
@@ -186,7 +232,7 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
 
         # upload the file
         try:
-            session.upload_file(token, bpy.data.filepath)
+            session.upload_file(token, self.filepath)
         except sheepit.NetworkException as e:
             self.error = str(e)
             self.error_at = "upload"
@@ -228,7 +274,7 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
             try:
                 p = session.get_upload_progress(self.token)
                 if p:
-                    self.progress = int(10+(p*85))
+                    self.progress = int(15+(p*80))
             except Exception:
                 pass
 
@@ -242,6 +288,12 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
             self.upload_thread.join()
         if self.thread.isAlive():
             self.thread.join()
+        try:
+            os.remove(self.filepath)
+            os.remove(f"{self.filepath}.log")
+            os.remove(f"{self.filepath}1")
+        except FileNotFoundError as e:
+            pass
         context.area.tag_redraw()
 
 
