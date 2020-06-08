@@ -76,3 +76,19 @@ class SheepItSceneProperties(bpy.types.PropertyGroup):
             ("6", "6x6", "Split the Image into 36 parts"),
         ]
     )
+    still_layer_split: bpy.props.IntProperty(
+        name="Split frame into",
+        description="Split the frame into multiple layers to speed up rendertime.",
+        default=4,
+        min=4,
+        max=32,
+        step=1
+    )
+    anim_layer_split: bpy.props.IntProperty(
+        name="Split each frame into",
+        description="Split each frame into multiple layers to speed up rendertime.",
+        default=1,
+        min=1,
+        max=64,
+        step=1
+    )

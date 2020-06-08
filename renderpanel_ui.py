@@ -91,21 +91,37 @@ class AddProjectPanel(SheepItRenderPanel, bpy.types.Panel):
             if context.scene.sheepit_properties.type == 'frame':
                 # settings for Single Frame renders
                 settings.prop(context.scene, "frame_current")
-                self.layout.label(text="The frame will be split in 8x8 tiles.")
             else:
                 # settings for Animations
                 settings.prop(context.scene, "frame_start")
                 settings.prop(context.scene, "frame_end")
                 settings.prop(context.scene, "frame_step")
                 settings.prop(context.scene.sheepit_properties, "mp4")
+            # frame splitting
+            split_layers = False
+            if bpy.context.scene.render.engine == 'CYCLES' \
+                    and bpy.context.scene.use_nodes:
+                split_layers = True
 
-                split_frame = self.layout.row(align=True)
-                split_frame.prop(context.scene.sheepit_properties,
-                                 "anim_split", expand=True)
-                if context.scene.sheepit_properties.anim_split != '1':
+            if context.scene.sheepit_properties.type == 'frame':
+                if split_layers:
+                    self.layout.prop(context.scene.sheepit_properties,
+                                     "still_layer_split")
+                else:
                     self.layout.label(
-                        text="If you split frames, compositor and "
-                        "denoising will be disabled.")
+                        text="The frame will be split in 8x8 tiles.")
+            else:
+                if split_layers:
+                    self.layout.prop(context.scene.sheepit_properties,
+                                     "anim_layer_split")
+                else:
+                    split_frame = self.layout.row(align=True)
+                    split_frame.prop(context.scene.sheepit_properties,
+                                     "anim_split", expand=True)
+                    if context.scene.sheepit_properties.anim_split != '1':
+                        self.layout.label(
+                            text="If you split frames, compositor and "
+                            "denoising will be disabled.")
 
             self.layout.operator("sheepit.send_project")
             status = ""

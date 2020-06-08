@@ -195,7 +195,7 @@ class Sheepit():
                 opencl=False, public=True, mp4=False,
                 anim_start_frame=None, anim_end_frame=None,
                 anim_step_frame=None, still_frame=None, max_ram=None,
-                split=None):
+                split_tiles=None, split_layers=None, split_by_layers=False):
         """ Uploads the selected file to the Server
 
             Use request_upload_token() to get a token
@@ -206,6 +206,13 @@ class Sheepit():
         param_start_frame = 0
         param_end_frame = 0
         param_step_frame = 1
+        param_split_tiles = -1
+        param_split_layers = None
+
+        if split_by_layers:
+            param_split_layers = split_layers
+        else:
+            param_split_tiles = split_tiles
 
         if animation:
             param_start_frame = anim_start_frame
@@ -251,12 +258,14 @@ class Sheepit():
             "max_ram_optional": "",
             "path": parser.data['addjob_path_0'],
             "framerate": parser.data['addjob_framerate_0'],
-            "split_tiles": split,
+            "split_tiles": param_split_tiles,
             "exr": "0",
             "cycles_samples": parser.data['addjob_cycles_samples_0'],
             "samples_pixel": parser.data['addjob_samples_pixel_0'],
             "image_extension": parser.data['addjob_image_extension_0'],
         }
+        if param_split_layers:
+            settings["split_samples"] = param_split_layers
         try:
             r = self.session.post(
                 f"https://{self.domain}/ajax.php", data=settings)

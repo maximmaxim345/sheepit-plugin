@@ -118,7 +118,16 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         self.frame_end = context.scene.frame_end
         self.frame_step = context.scene.frame_step
         self.frame_current = context.scene.frame_current
-        self.anim_split = context.scene.sheepit_properties.anim_split
+
+        self.split_by_layers = False
+        if bpy.context.scene.render.engine == 'CYCLES' \
+                and bpy.context.scene.use_nodes:
+            self.split_by_layers = True
+        self.split_tiles = context.scene.sheepit_properties.anim_split
+        if self.animation:
+            self.split_layers = context.scene.sheepit_properties.anim_layer_split
+        else:
+            self.split_layers = context.scene.sheepit_properties.still_layer_split
 
         # Save file
         blend_name = os.path.split(bpy.data.filepath)[1]
@@ -257,7 +266,9 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
                             anim_step_frame=self.frame_step,
                             still_frame=self.frame_current,
                             max_ram="",
-                            split=self.anim_split)
+                            split_by_layers=self.split_by_layers,
+                            split_layers=self.split_layers,
+                            split_tiles=self.split_tiles)
         except sheepit.NetworkException as e:
             self.error = str(e)
             self.error_at = "add project"
