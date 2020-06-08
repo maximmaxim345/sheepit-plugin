@@ -15,8 +15,6 @@
 * This addon should work on Windows, MacOS and Linux (Testers needed)
 * Fluid simulation are not supported
 ### Planned features
-* Support layers splitting (Currently only chessboard splitting is supported, this disables compositing)
-* Speedup upload process
 * Cancel button for an ongoing upload
 ---
 ### Links
