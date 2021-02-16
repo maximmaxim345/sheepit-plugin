@@ -220,18 +220,7 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
 
         self.status = "Getting Token"
 
-        # request a upload token from the SheepIt server
-        token = ""
-        try:
-            token = session.request_upload_token()
-        except sheepit.NetworkException as e:
-            self.error = str(e)
-            self.error_at = "token"
-            return
-        except sheepit.UploadException as e:
-            self.error = str(e)
-            self.error_at = "token"
-            return
+        token = "upload"
         self.progress = 15
 
         self.status = "Uploading File"

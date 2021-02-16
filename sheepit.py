@@ -114,40 +114,10 @@ class Sheepit():
 
         return p.data
 
-    def request_upload_token(self):
-        """ Requests a upload token from the Server
-            This token should be used with:
-
-            upload_file() and
-            add_job()
-
-            Raises:
-            NetworkError on a failed connection
-            UploadException if the maximum number of simultaneous
-                projects had been reached """
-        try:
-            r = self.session.get(f"https://{self.domain}/getstarted.php",
-                                 timeout=5)
-        except requests.exceptions.Timeout:
-            raise NetworkException("Timed out")
-        except requests.exceptions.RequestException:
-            raise NetworkException("Failed connecting to the sheepit server")
-
-        p = TokenParser()
-        p.feed(str(r.text))
-        p.close()
-        if p.token == "":
-            raise UploadException(
-                "Error getting Upload Token, "
-                "maximum number of simultaneous Projects reached"
-            )
-        return p.token
-
     def upload_file(self, token, path_to_file):
         """ Uploads the selected file to the Server
 
-            Use request_upload_token() to get a token,
-            get_upload_progress() to track the upload progress
+            Use get_upload_progress() to track the upload progress
             and add_job() to add the uploaded project
 
             Raises:
@@ -155,11 +125,9 @@ class Sheepit():
         with open(path_to_file, "rb") as f:
             try:
                 form = encoder.MultipartEncoder({
-                    "step": "1",
-                    "transfertmethod": "File",
-                    "token": token,
-                    "PHP_SESSION_UPLOAD_PROGRESS": token,
                     "mode": "add",
+                    "step": "1",
+                    "PHP_SESSION_UPLOAD_PROGRESS": "upload",
                     "addjob_archive": (os.path.split(path_to_file)[1], f)
                 })
                 headers = {"Prefer": "respond-async",
@@ -198,8 +166,7 @@ class Sheepit():
                 split_tiles=None, split_layers=None, split_by_layers=False):
         """ Uploads the selected file to the Server
 
-            Use request_upload_token() to get a token
-            and upload_file() to upload the file
+            Use upload_file() to upload the file
 
             Raises:
             NetworkError on a failed connection """
@@ -223,7 +190,7 @@ class Sheepit():
 
         try:
             r = self.session.get(
-                f"https://{self.domain}/jobs.php?mode=add&step=2&token={token}")
+                f"https://{self.domain}/jobs.php?mode=add&step=2")
         except requests.exceptions.RequestException:
             raise NetworkException("Failed connecting to the sheepit server")
         parser = AddJobParser()
@@ -243,11 +210,11 @@ class Sheepit():
         settings = {
             "addjob": "addjob",
             "do_addjob": "do_addjob",
-            "token": token,
             "type": "animation" if animation else "singleframe",
             "compute_method": compute_method,
             "executable": "blender291.0",
             "engine": parser.data['addjob_engine_0'],
+            "render_on_gpu_headless": "1",
             "public_render": "1" if public else "0",
             "public_thumbnail": "0",
             "generate_mp4": "1" if mp4 else "0",
@@ -258,6 +225,8 @@ class Sheepit():
             "max_ram_optional": "",
             "path": parser.data['addjob_path_0'],
             "framerate": parser.data['addjob_framerate_0'],
+            "width": parser.data['addjob_width_0'],
+            "height": parser.data['addjob_height_0'],
             "split_tiles": param_split_tiles,
             "exr": "0",
             "cycles_samples": parser.data['addjob_cycles_samples_0'],
@@ -360,25 +329,6 @@ class ProfileParser(html.parser.HTMLParser):
             self.dt_data = ""
 
 
-class TokenParser(html.parser.HTMLParser):
-    """ Parses the get started page to return a upload token """
-
-    def __init__(self):
-        html.parser.HTMLParser.__init__(self)
-        self.token = ""
-
-    def handle_starttag(self, tag, attributes):
-        if tag == 'input':
-            isToken = False
-            for name, value in attributes:
-                if(name == "name" and value == "token"):
-                    isToken = True
-            if isToken:
-                for name, value in attributes:
-                    if(name == "value"):
-                        self.token = value
-
-
 class AddJobParser(html.parser.HTMLParser):
     """ Parses the step 2 Page in the upload process """
 
@@ -392,6 +342,8 @@ class AddJobParser(html.parser.HTMLParser):
             "addjob_cycles_samples_0": "",
             "addjob_samples_pixel_0": "",
             "addjob_image_extension_0": "",
+            "addjob_width_0": "",
+            "addjob_height_0": "",
         }
 
     def handle_starttag(self, tag, attributes):
