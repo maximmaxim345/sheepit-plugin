@@ -246,7 +246,7 @@ class Sheepit():
             "token": token,
             "type": "animation" if animation else "singleframe",
             "compute_method": compute_method,
-            "executable": "blender283",
+            "executable": "blender291.0",
             "engine": parser.data['addjob_engine_0'],
             "public_render": "1" if public else "0",
             "public_thumbnail": "0",
