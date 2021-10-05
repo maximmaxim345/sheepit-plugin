@@ -237,7 +237,7 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
             self.uploading = False
             return
         self.uploading = False
-        if self.upload_thread.isAlive():
+        if self.upload_thread.is_alive():
             self.upload_thread.join()
         self.progress = 95
 
@@ -284,9 +284,9 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
         bpy.context.window_manager['sheepit']['upload_active'] = False
         del bpy.context.window_manager['sheepit']['progress']
         self.uploading = False
-        if self.upload_thread.isAlive():
+        if self.upload_thread.is_alive():
             self.upload_thread.join()
-        if self.thread.isAlive():
+        if self.thread.is_alive():
             self.thread.join()
         try:
             os.remove(self.filepath)
