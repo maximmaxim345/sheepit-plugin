@@ -212,7 +212,7 @@ class Sheepit():
             "do_addjob": "do_addjob",
             "type": "animation" if animation else "singleframe",
             "compute_method": compute_method,
-            "executable": "blender291.0",
+            "executable": parser.data["addjob_exe"],
             "engine": parser.data['addjob_engine_0'],
             "render_on_gpu_headless": "1",
             "public_render": "1" if public else "0",
@@ -344,7 +344,9 @@ class AddJobParser(html.parser.HTMLParser):
             "addjob_image_extension_0": "",
             "addjob_width_0": "",
             "addjob_height_0": "",
+            "addjob_exe": "",
         }
+        self.is_in_addjob = False
 
     def handle_starttag(self, tag, attributes):
         if tag == 'input':
@@ -358,3 +360,18 @@ class AddJobParser(html.parser.HTMLParser):
                 for name, value in attributes:
                     if(name == "value"):
                         self.data[id] = value
+        elif tag == 'select':
+            for name, value in attributes:
+                if name == "id" and value == "addjob_exe":
+                    self.is_in_addjob = True
+        elif tag == 'option' and self.is_in_addjob:
+            isDefault = False
+            addjob_exe = ""
+            for name, value in attributes:
+                if name == "selected":
+                    isDefault = True
+                elif name == "value":
+                    addjob_exe = value
+            if isDefault:
+                self.data["addjob_exe"] = addjob_exe
+                self.is_in_addjob = False
