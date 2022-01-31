@@ -174,16 +174,8 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
 
         self.status = "Testing connection"
 
-        # test if logged in
-        try:
-            if not session.is_logged_in():
-                self.error = "Please Log in"
-                self.error_at = "login"
-                return
-        except sheepit.NetworkException as e:
-            self.error = str(e)
-            self.error_at = "login"
-            return
+        # Since the new API testing the connection became a more complex
+        # We will just assume that the user is logged in
         
         self.progress = 5
 
@@ -220,7 +212,18 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
 
         self.status = "Getting Token"
 
-        token = "upload"
+        # request a upload token from the SheepIt server
+        token = ""
+        try:
+            token = session.request_upload_token()
+        except sheepit.NetworkException as e:
+            self.error = str(e)
+            self.error_at = "token"
+            return
+        except sheepit.UploadException as e:
+            self.error = str(e)
+            self.error_at = "token"
+            return
         self.progress = 15
 
         self.status = "Uploading File"
@@ -373,6 +376,7 @@ class SHEEPIT_OT_refresh_profile(bpy.types.Operator):
     def execute(self, context):
         preferences = context.preferences.addons[__package__].preferences
         self.cookies = json.loads(preferences.cookies)
+        self.username = preferences.username
 
         self.thread = threading.Thread(target=self.request_profile)
         self.thread.start()
@@ -402,7 +406,7 @@ class SHEEPIT_OT_refresh_profile(bpy.types.Operator):
         session.import_session(self.cookies)
 
         try:
-            self.profile = session.get_profile_information()
+            self.profile = session.get_profile_information(self.username)
         except sheepit.NetworkException as e:
             self.profile = e
 
@@ -470,5 +474,5 @@ class SHEEPIT_OT_create_accout(bpy.types.Operator):
 
     def execute(self, context):
         bpy.ops.wm.url_open(
-            url="https://www.sheepit-renderfarm.com/account.php?mode=register")
+            url="https://www.sheepit-renderfarm.com/user/register")
         return {'FINISHED'}

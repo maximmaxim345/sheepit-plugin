@@ -55,7 +55,7 @@ class Sheepit():
             NetworkError on a failed connection
             LoginError on a Wrong username and/or password """
         try:
-            r = self.session.post(f"https://{self.domain}/ajax.php",
+            r = self.session.post(f"https://{self.domain}/user/authenticate",
                                   data={"login": username,
                                         "password": password,
                                         "do_login": "do_login",
@@ -81,7 +81,7 @@ class Sheepit():
                 cookies will still be cleared """
         try:
             self.session.get(
-                f"https://{self.domain}/account.php?mode=logout", timeout=5)
+                f"https://{self.domain}/user/logout", timeout=5)
         except requests.exceptions.Timeout:
             raise NetworkException("Timed out")
         except requests.exceptions.RequestException:
@@ -92,7 +92,7 @@ class Sheepit():
             except KeyError:
                 pass
 
-    def get_profile_information(self):
+    def get_profile_information(self, username):
         """ This methode returns a dict with the folowing profile attributes:
             "Projects created", "Frames ordered", "Rendered frames"
             "Accumulated render", "Rank", "Points", "Team" and "Registration"
@@ -102,7 +102,7 @@ class Sheepit():
         r = None
         try:
             r = self.session.get(
-                f"https://{self.domain}/account.php?mode=profile", timeout=5)
+                f"https://{self.domain}/user/{username}/profile", timeout=5)
         except requests.exceptions.Timeout:
             raise NetworkException("Timed out")
         except requests.exceptions.RequestException:
@@ -113,6 +113,35 @@ class Sheepit():
         p.close()
 
         return p.data
+
+    def request_upload_token(self):
+        """ Requests a upload token from the Server
+            This token should be used with:
+
+            upload_file() and
+            add_job()
+
+            Raises:
+            NetworkError on a failed connection
+            UploadException if the maximum number of simultaneous
+                projects had been reached """
+        try:
+            r = self.session.get(f"https://{self.domain}/getstarted",
+                                 timeout=5)
+        except requests.exceptions.Timeout:
+            raise NetworkException("Timed out")
+        except requests.exceptions.RequestException:
+            raise NetworkException("Failed connecting to the sheepit server")
+
+        p = TokenParser()
+        p.feed(str(r.text))
+        p.close()
+        if p.token == "":
+            raise UploadException(
+                "Error getting Upload Token, "
+                "maximum number of simultaneous Projects reached"
+            )
+        return p.token
 
     def upload_file(self, token, path_to_file):
         """ Uploads the selected file to the Server
@@ -125,15 +154,13 @@ class Sheepit():
         with open(path_to_file, "rb") as f:
             try:
                 form = encoder.MultipartEncoder({
-                    "mode": "add",
-                    "step": "1",
-                    "PHP_SESSION_UPLOAD_PROGRESS": "upload",
-                    "addjob_archive": (os.path.split(path_to_file)[1], f)
+                    "UPLOAD_IDENTIFIER": token,
+                    "addjob_archive": (os.path.split(path_to_file)[1], f, "multipart/form-data")
                 })
                 headers = {"Prefer": "respond-async",
                            "Content-Type": form.content_type}
                 r = self.session.post(
-                    f"https://{self.domain}/jobs.php", data=form, headers=headers)
+                    f"https://{self.domain}/project/internal/upload", data=form, headers=headers)
             except requests.exceptions.RequestException as e:
                 raise NetworkException(
                     "Failed connecting to the sheepit server")
@@ -145,15 +172,13 @@ class Sheepit():
             NetworkError on a failed connection """
         try:
             r = self.session.post(
-                f"https://{self.domain}/ajax.php", data={
-                    "addjob": "addjob",
-                    "upload_progress": "upload_progress",
-                    "token": token
+                f"https://{self.domain}/project/internal/progress", data={
+                    "uid": token
                 },
                 timeout=5
             )
             dict = eval(r.content)
-            return dict['bytes_processed']/dict['content_length']
+            return int(dict['bytes_processed'])/int(dict['content_length'])
         except requests.exceptions.RequestException:
             raise NetworkException("Failed connecting to the sheepit server")
         except SyntaxError:
@@ -190,7 +215,7 @@ class Sheepit():
 
         try:
             r = self.session.get(
-                f"https://{self.domain}/jobs.php?mode=add&step=2")
+                f"https://{self.domain}/project/add")
         except requests.exceptions.RequestException:
             raise NetworkException("Failed connecting to the sheepit server")
         parser = AddJobParser()
@@ -208,8 +233,6 @@ class Sheepit():
             compute_method += 4
 
         settings = {
-            "addjob": "addjob",
-            "do_addjob": "do_addjob",
             "type": "animation" if animation else "singleframe",
             "compute_method": compute_method,
             "executable": parser.data["addjob_exe"],
@@ -237,7 +260,7 @@ class Sheepit():
             settings["split_samples"] = param_split_layers
         try:
             r = self.session.post(
-                f"https://{self.domain}/ajax.php", data=settings)
+                f"https://{self.domain}/project/add_internal", data=settings)
         except requests.exceptions.RequestException:
             raise NetworkException("Failed connecting to the sheepit server")
 
@@ -329,6 +352,24 @@ class ProfileParser(html.parser.HTMLParser):
             self.dt_data = ""
 
 
+class TokenParser(html.parser.HTMLParser):
+    """ Parses the get started page to return a upload token """
+
+    def __init__(self):
+        html.parser.HTMLParser.__init__(self)
+        self.token = ""
+
+    def handle_starttag(self, tag, attributes):
+        if tag == 'input':
+            isToken = False
+            for name, value in attributes:
+                if(name == "name" and value == "UPLOAD_IDENTIFIER"):
+                    isToken = True
+            if isToken:
+                for name, value in attributes:
+                    if(name == "value"):
+                        self.token = value
+
 class AddJobParser(html.parser.HTMLParser):
     """ Parses the step 2 Page in the upload process """
 
@@ -368,9 +409,8 @@ class AddJobParser(html.parser.HTMLParser):
             isDefault = False
             addjob_exe = ""
             for name, value in attributes:
-                if name == "selected":
-                    isDefault = True
-                elif name == "value":
+                if name == "value":
+                    isDefault = True # we will use the first option as default
                     addjob_exe = value
             if isDefault:
                 self.data["addjob_exe"] = addjob_exe
