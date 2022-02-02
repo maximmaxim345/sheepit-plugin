@@ -20,7 +20,7 @@ bl_info = {
     "author": "Maxim Raznatovski",
     "description": "Upload Your Projects Directly to the SheepIt! Renderfarm",
     "blender": (2, 80, 0),
-    "version": (0, 2, 1),
+    "version": (0, 2, 5),
     "location": "Properties > Render > SheepIt! Renderfarm",
     "warning": "",
     "support": "COMMUNITY",
