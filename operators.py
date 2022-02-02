@@ -190,7 +190,7 @@ class SHEEPIT_OT_send_project(bpy.types.Operator):
                 "--factory-startup",
                 "--python",
                 self.prepare_script
-            ], shell=True
+            ], shell=False
         )
         try:
             with open(f"{self.filepath}.log", "r") as f:
