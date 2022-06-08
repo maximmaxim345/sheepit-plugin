@@ -255,6 +255,7 @@ class Sheepit():
             "cycles_samples": parser.data['addjob_cycles_samples_0'],
             "samples_pixel": parser.data['addjob_samples_pixel_0'],
             "image_extension": parser.data['addjob_image_extension_0'],
+            "use_adaptive_sampling": "1"
         }
         if param_split_layers:
             settings["split_samples"] = param_split_layers
